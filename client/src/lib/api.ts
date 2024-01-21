@@ -1,8 +1,9 @@
 import { Api } from "../__generated__/api"
 import { jwtDecode } from 'jwt-decode'
 
-const OAUTH_SERVER = "http://localhost:8000/o"
-const CLIENT_ID = '9COYxKq9FZVr2WFtFqtkkpM8mdS8Qe23D1ohVNn1'
+const OAUTH_SERVER = import.meta.env.VITE_OAUTH_SERVER
+const CLIENT_ID = import.meta.env.VITE_CLIENT_ID
+const API_BASE = import.meta.env.VITE_API_BASE
 const SCOPES = ['openid', 'user/basic', 'media']
 
 const urlParams = new URLSearchParams(window.location.search)
@@ -35,7 +36,7 @@ if (!token || (decoded?.exp||0) * 1000 < Date.now()) {
 }
 
 export default new Api({
-    baseUrl: "http://localhost:7000",
+    baseUrl: API_BASE,
     baseApiParams: {
         credentials: "same-origin",
         headers: {
