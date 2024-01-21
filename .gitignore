@@ -1,0 +1,7 @@
+api/data
+**/__pycache__
+*/.venv
+*/venv
+api/database.db
+*/.idea
+*/.env

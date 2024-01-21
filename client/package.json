@@ -1,0 +1,31 @@
+{
+  "name": "media",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "generate": "swagger-typescript-api -p http://localhost:8000/openapi.json -o ./src/__generated__ -n api.ts"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.0.1",
+    "@tsconfig/svelte": "^5.0.2",
+    "svelte": "^4.2.8",
+    "svelte-check": "^3.6.2",
+    "swagger-typescript-api": "^13.0.3",
+    "tslib": "^2.6.2",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8"
+  },
+  "dependencies": {
+    "@fortawesome/free-regular-svg-icons": "^6.5.1",
+    "@fortawesome/free-solid-svg-icons": "^6.5.1",
+    "jwt-decode": "^4.0.0",
+    "svelte-dnd-action": "^0.9.38",
+    "svelte-fa": "^4.0.2",
+    "svelte-spa-router": "^4.0.1"
+  }
+}
