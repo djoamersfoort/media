@@ -1,5 +1,7 @@
 FROM python:3.11-slim
 
+RUN apt -yy update && apt -yy install ffmpeg && apt clean
+
 COPY app/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
