@@ -8,7 +8,7 @@ from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from fastapi import UploadFile
-from fastapi.responses import FileResponse
+from app.fileresponse import FastApiBaizeFileResponse as FileResponse
 from sqlalchemy.orm import Session
 
 from app.conf import settings
