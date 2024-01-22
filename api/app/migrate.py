@@ -10,7 +10,7 @@ from starlette.datastructures import Headers
 
 async def migrate():
     with Session(engine) as database:
-        with open("../data/albums.json", "r") as file:
+        with open("data/albums.json", "r") as file:
             albums = loads(file.read())
 
         for album in albums:
