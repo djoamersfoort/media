@@ -35,7 +35,7 @@
             <Fa icon={faCheck} />
         {/if}
     </div>
-    <img src="{item.cover_path}" alt="" on:click={interact}>
+    <img src="{item.cover_path}" alt="" loading="lazy" on:click={interact}>
 </div>
 
 <style>
