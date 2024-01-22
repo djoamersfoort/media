@@ -33,4 +33,4 @@ jobs:
             oauth_server=${{ vars.OAUTH_SERVER }}
             client_id=${{ vars.CLIENT_ID }}
             api_base=${{ vars.API_BASE }}
-            redirect_url=${{ REDIRECT_URL }}
+            redirect_url=${{ vars.REDIRECT_URL }}
