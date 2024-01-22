@@ -19,7 +19,7 @@ async def migrate():
             for file in album["files"]:
                 with open(f"data/files/{file['id']}", "rb") as buffer:
                     headers = Headers({
-                        "Content-Type": f"{file["type"]}/webp",
+                        "Content-Type": f"{file['type']}/webp",
                     })
                     item = await create_item(
                         database,
