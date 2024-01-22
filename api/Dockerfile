@@ -11,4 +11,5 @@ WORKDIR /app
 
 COPY app /app
 
+ENV PYTHONPATH=/
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0"]
