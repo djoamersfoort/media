@@ -1,0 +1,34 @@
+name: Client
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Docker Login
+        uses: docker/login-action@v2.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4.0.0
+        with:
+          file: client/Dockerfile
+          context: client
+          push: true
+          tags: ghcr.io/djoamersfoort/notifications/api:latest
+          build-args: |
+            oauth_server = ${OAUTH_SERVER}
+            client_id = ${CLIENT_ID}
+            api_base = ${API_BASE}
+            redirect_url = ${REDIRECT_URL}
