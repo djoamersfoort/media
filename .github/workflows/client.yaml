@@ -30,7 +30,7 @@ jobs:
           push: true
           tags: ghcr.io/djoamersfoort/media/client:latest
           build-args: |
-            oauth_server=${OAUTH_SERVER}
-            client_id=${CLIENT_ID}
-            api_base=${API_BASE}
-            redirect_url=${REDIRECT_URL}
+            oauth_server=${{ vars.OAUTH_SERVER }}
+            client_id=${{ vars.CLIENT_ID }}
+            api_base=${{ vars.API_BASE }}
+            redirect_url=${{ REDIRECT_URL }}
