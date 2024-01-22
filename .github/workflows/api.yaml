@@ -26,4 +26,4 @@ jobs:
           file: api/Dockerfile
           context: api
           push: true
-          tags: ghcr.io/djoamersfoort/notifications/api:latest
+          tags: ghcr.io/djoamersfoort/media/api:latest

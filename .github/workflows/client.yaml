@@ -26,7 +26,7 @@ jobs:
           file: client/Dockerfile
           context: client
           push: true
-          tags: ghcr.io/djoamersfoort/notifications/client:latest
+          tags: ghcr.io/djoamersfoort/media/client:latest
           build-args: |
             oauth_server = ${OAUTH_SERVER}
             client_id = ${CLIENT_ID}
