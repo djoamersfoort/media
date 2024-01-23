@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
@@ -144,25 +145,29 @@ async def upload_items(
     return await crud.create_item(db, user, items, album_id)
 
 
-@app.get("/items/{album_id}/{item_id}/full", include_in_schema=False)
+@app.get("/items/{album_id}/{item_id}/{expiry}/full", include_in_schema=False)
 async def get_item(
-    album_id: UUID, item_id: UUID, signature: str, db: Session = Depends(get_db)
+    album_id: UUID, item_id: UUID, signature: str, expiry: float, db: Session = Depends(get_db)
 ):
     if not verify_signature(
-        f"{settings.base_url}/items/{album_id}/{item_id}/full", signature
+        f"{settings.base_url}/items/{album_id}/{item_id}/{expiry}/full", signature
     ):
+        return None
+    if datetime.now().timestamp() > expiry:
         return None
 
     return crud.get_full(db, item_id)
 
 
-@app.get("/items/{album_id}/{item_id}/cover", include_in_schema=False)
+@app.get("/items/{album_id}/{item_id}/{expiry}/cover", include_in_schema=False)
 async def get_cover(
-    album_id: UUID, item_id: UUID, signature: str, db: Session = Depends(get_db)
+    album_id: UUID, item_id: UUID, signature: str, expiry: float, db: Session = Depends(get_db)
 ):
     if not verify_signature(
-        f"{settings.base_url}/items/{album_id}/{item_id}/cover", signature
+        f"{settings.base_url}/items/{album_id}/{item_id}/{expiry}/cover", signature
     ):
+        return None
+    if datetime.now().timestamp() > expiry:
         return None
 
     return crud.get_cover(db, item_id)

@@ -38,12 +38,13 @@ def sign_url(url: str):
 
 def sign_item(item_data: models.Item):
     item = schemas.Item.model_validate(item_data)
+    expiry = (datetime.datetime.now() + datetime.timedelta(days=1)).timestamp()
 
     item.cover_path = sign_url(
-        f"{settings.base_url}/items/{item_data.album_id}/{item.id}/cover"
+        f"{settings.base_url}/items/{item_data.album_id}/{item.id}/{expiry}/cover"
     )
     item.path = sign_url(
-        f"{settings.base_url}/items/{item_data.album_id}/{item.id}/full"
+        f"{settings.base_url}/items/{item_data.album_id}/{item.id}/{expiry}/full"
     )
 
     return item
