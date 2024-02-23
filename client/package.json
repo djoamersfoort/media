@@ -11,7 +11,7 @@
     "generate": "swagger-typescript-api -p http://localhost:8000/openapi.json -o ./src/__generated__ -n api.ts"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^3.0.1",
+    "@sveltejs/vite-plugin-svelte": "^3.0.2",
     "@tsconfig/svelte": "^5.0.2",
     "svelte": "^4.2.12",
     "svelte-check": "^3.6.2",
