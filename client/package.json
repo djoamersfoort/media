@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@fortawesome/free-regular-svg-icons": "^6.5.1",
-    "@fortawesome/free-solid-svg-icons": "^6.5.1",
+    "@fortawesome/free-solid-svg-icons": "^6.5.2",
     "jwt-decode": "^4.0.0",
     "svelte-dnd-action": "^0.9.42",
     "svelte-fa": "^4.0.2",
