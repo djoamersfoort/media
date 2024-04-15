@@ -9,7 +9,7 @@ RUN useradd -m -U -d /app media
 USER media
 WORKDIR /app
 
-COPY app /app
+COPY . /app
 
 ENV PYTHONPATH=/
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
