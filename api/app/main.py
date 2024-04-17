@@ -11,14 +11,13 @@ from fastapi import FastAPI, Depends, UploadFile, status, BackgroundTasks
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi_utils.tasks import repeat_every
 from sqlalchemy.orm import Session
 
 from app.conf import settings
 from app.db import models, schemas, crud
 from app.db.database import get_db, engine
 from app.db.schemas import User
-from app.utils import process_smoelen, obtain_images, handle_unprocessed
+from app.utils import process_smoelen, obtain_images, handle_unprocessed, repeat_every
 
 
 @lru_cache()
