@@ -1,6 +1,6 @@
 from json import loads
 from db.database import engine
-from db.crud import create_album, create_item, set_preview
+from db.crud import create_album, create_items, set_preview
 from db.schemas import AlbumCreate, User, Item
 from fastapi import UploadFile
 from datetime import datetime
@@ -21,7 +21,7 @@ async def migrate():
                     headers = Headers({
                         "Content-Type": f"{file['type']}/webp",
                     })
-                    item = await create_item(
+                    item = await create_items(
                         database,
                         User(id=file["user"], admin=False),
                         [UploadFile(buffer, headers=headers)],

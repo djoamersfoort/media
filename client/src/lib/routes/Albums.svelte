@@ -9,6 +9,7 @@
     import { dndzone } from 'svelte-dnd-action'
     import { faPlus } from "@fortawesome/free-solid-svg-icons"
     import { push } from "svelte-spa-router"
+    import ModeSwitch from "$lib/components/ModeSwitch.svelte";
 
     let albums = Api.albums.getAlbums()
         .then(({ data }) => {
@@ -49,6 +50,7 @@
         {/each}
     </div>
 {/await}
+<ModeSwitch mode="albums" />
 
 <style>
     .albums {

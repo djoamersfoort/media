@@ -21,18 +21,27 @@ def sign_url(url: str):
     return f"{url}?signature={signature.hex()}"
 
 
+class Smoel(BaseModel):
+    id: UUID
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
 class ItemBase(BaseModel):
     id: UUID
     date: datetime
     width: int
     height: int
     type: int
-    user: str
+    user: str | None
 
 
 class Item(ItemBase):
     path: str
     cover_path: str
+    smoelen: list[Smoel]
 
     class Config:
         from_attributes = True
@@ -41,6 +50,10 @@ class Item(ItemBase):
 class AlbumBase(BaseModel):
     name: str
     description: str
+
+
+class SmoelAlbumBase(BaseModel):
+    name: str
 
 
 class AlbumCreate(AlbumBase):
@@ -57,10 +70,27 @@ class Album(AlbumBase):
         from_attributes = True
 
 
+class SmoelAlbum(SmoelAlbumBase):
+    id: UUID
+    items: list[Item]
+
+    class Config:
+        from_attributes = True
+
+
 class AlbumList(AlbumBase):
     id: UUID
     order: int
     preview: Item | None
+
+    class Config:
+        from_attributes = True
+
+
+class SmoelAlbumList(SmoelAlbumBase):
+    id: UUID
+    preview: Item
+    items: list[Item]
 
     class Config:
         from_attributes = True

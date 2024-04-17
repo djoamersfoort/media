@@ -93,11 +93,51 @@ export interface Item {
   /** Type */
   type: number;
   /** User */
-  user: string;
+  user: string | null;
   /** Path */
   path: string;
   /** Cover Path */
   cover_path: string;
+  /** Smoelen */
+  smoelen: Smoel[];
+}
+
+/** Smoel */
+export interface Smoel {
+  /**
+   * Id
+   * @format uuid
+   */
+  id: string;
+  /** Name */
+  name: string;
+}
+
+/** SmoelAlbum */
+export interface SmoelAlbum {
+  /** Name */
+  name: string;
+  /**
+   * Id
+   * @format uuid
+   */
+  id: string;
+  /** Items */
+  items: Item[];
+}
+
+/** SmoelAlbumList */
+export interface SmoelAlbumList {
+  /** Name */
+  name: string;
+  /**
+   * Id
+   * @format uuid
+   */
+  id: string;
+  preview: Item;
+  /** Items */
+  items: Item[];
 }
 
 /** User */
@@ -504,6 +544,41 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
     getUser: (params: RequestParams = {}) =>
       this.request<User, any>({
         path: `/users/me`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+  };
+  smoelen = {
+    /**
+     * No description
+     *
+     * @name GetSmoelen
+     * @summary Get Smoelen
+     * @request GET:/smoelen
+     * @secure
+     */
+    getSmoelen: (params: RequestParams = {}) =>
+      this.request<SmoelAlbumList[], any>({
+        path: `/smoelen`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @name GetSmoel
+     * @summary Get Smoel
+     * @request GET:/smoelen/{smoel_id}
+     * @secure
+     */
+    getSmoel: (smoelId: string, params: RequestParams = {}) =>
+      this.request<SmoelAlbum, HTTPValidationError>({
+        path: `/smoelen/${smoelId}`,
         method: "GET",
         secure: true,
         format: "json",

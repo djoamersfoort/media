@@ -12,4 +12,4 @@ WORKDIR /app
 COPY . /app
 
 ENV PYTHONPATH=/
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
+ENTRYPOINT ["/app/start.sh"]

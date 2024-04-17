@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     allowed_users: list[str]
     openid_configuration: str
     database_url: str
+    client_id: str
+    client_secret: str
 
 
 settings = Settings()

@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from datetime import datetime
 from functools import lru_cache
 from typing import Annotated
@@ -6,16 +7,18 @@ from uuid import UUID
 import jwt
 import requests
 from Crypto.Hash import SHA256
-from fastapi import FastAPI, Depends, UploadFile, status
+from fastapi import FastAPI, Depends, UploadFile, status, BackgroundTasks
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi_utils.tasks import repeat_every
 from sqlalchemy.orm import Session
 
 from app.conf import settings
 from app.db import models, schemas, crud
 from app.db.database import get_db, engine
 from app.db.schemas import User
+from app.utils import process_smoelen, obtain_images, handle_unprocessed
 
 
 @lru_cache()
@@ -28,8 +31,22 @@ def get_jwks_client():
     return jwt.PyJWKClient(uri=get_openid_configuration()["jwks_uri"])
 
 
+@repeat_every(seconds=24 * 60 * 60)
+async def update_smoelen():
+    db = next(get_db())
+    obtain_images(db)
+    handle_unprocessed(db)
+
+
+@asynccontextmanager
+async def startup(_app: FastAPI) -> None:
+    """Startup context manager"""
+    await update_smoelen()
+    yield
+
+
 models.Base.metadata.create_all(bind=engine)
-app = FastAPI()
+app = FastAPI(lifespan=startup)
 
 app.add_middleware(
     CORSMiddleware,
@@ -139,18 +156,21 @@ async def update_album(
 async def upload_items(
     album_id: UUID,
     items: list[UploadFile],
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user: User = Depends(get_user),
 ):
-    return await crud.create_item(db, user, items, album_id)
+    items = await crud.create_items(db, user, items, album_id)
+    background_tasks.add_task(process_smoelen, db, items)
+    return items
 
 
-@app.get("/items/{album_id}/{item_id}/{expiry}/full", include_in_schema=False)
+@app.get("/items/{item_id}/{expiry}/full", include_in_schema=False)
 async def get_item(
-    album_id: UUID, item_id: UUID, signature: str, expiry: float, db: Session = Depends(get_db)
+    item_id: UUID, signature: str, expiry: float, db: Session = Depends(get_db)
 ):
     if not verify_signature(
-        f"{settings.base_url}/items/{album_id}/{item_id}/{expiry}/full", signature
+        f"{settings.base_url}/items/{item_id}/{expiry}/full", signature
     ):
         return None
     if datetime.now().timestamp() > expiry:
@@ -159,12 +179,12 @@ async def get_item(
     return crud.get_full(db, item_id)
 
 
-@app.get("/items/{album_id}/{item_id}/{expiry}/cover", include_in_schema=False)
+@app.get("/items/{item_id}/{expiry}/cover", include_in_schema=False)
 async def get_cover(
-    album_id: UUID, item_id: UUID, signature: str, expiry: float, db: Session = Depends(get_db)
+    item_id: UUID, signature: str, expiry: float, db: Session = Depends(get_db)
 ):
     if not verify_signature(
-        f"{settings.base_url}/items/{album_id}/{item_id}/{expiry}/cover", signature
+        f"{settings.base_url}/items/{item_id}/{expiry}/cover", signature
     ):
         return None
     if datetime.now().timestamp() > expiry:
@@ -209,3 +229,13 @@ async def set_preview(
 @app.get("/users/me", response_model=User, operation_id="get_user")
 async def get_user(user: User = Depends(get_user)):
     return user
+
+
+@app.get("/smoelen", response_model=list[schemas.SmoelAlbumList], operation_id="get_smoelen")
+async def get_smoelen(db: Session = Depends(get_db), _user=Depends(get_user)):
+    return crud.get_smoelen_albums(db)
+
+
+@app.get("/smoelen/{smoel_id}", response_model=schemas.SmoelAlbum, operation_id="get_smoel")
+async def get_smoel(smoel_id: UUID, db: Session = Depends(get_db), _user=Depends(get_user)):
+    return crud.get_smoel_album(db, smoel_id)
