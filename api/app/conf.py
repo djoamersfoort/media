@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     database_url: str
     client_id: str
     client_secret: str
+    weaviate_url: str
 
 
 settings = Settings()

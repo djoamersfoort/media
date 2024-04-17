@@ -22,7 +22,8 @@ from app.conf import settings
 from app.db import models
 from app.db.crud import get_smoel, set_smoel, delete_items, create_item
 
-client = connect_to_local()
+host, port = settings.weaviate_url.lstrip("https://").split(":")
+client = connect_to_local(host, port)
 known_faces = client.collections.get('known_faces')
 
 
@@ -147,7 +148,7 @@ def parse_smoel(smoel):
 
 
 def get_action(user):
-    current_result = requests.get(f"http://localhost:8080/v1/objects/known_faces/{user['id']}")
+    current_result = requests.get(f"{settings.weaviate_url}/v1/objects/known_faces/{user['id']}")
 
     if current_result.status_code != 200:
         return FaceAction.CREATE
@@ -172,7 +173,7 @@ def store_encoding(db: Session, user):
     smoel = get_smoel(db, user["id"], user["name"])
     smoel_vector = ndarray.tolist(encoding[0])
     if action == FaceAction.CREATE:
-        requests.post("http://localhost:8080/v1/objects", json={
+        requests.post(f"{settings.weaviate_url}/v1/objects", json={
             "class": "known_faces",
             "id": str(user["id"]),
             "vector": smoel_vector,
@@ -183,7 +184,7 @@ def store_encoding(db: Session, user):
             }
         })
     elif action == FaceAction.UPDATE:
-        requests.put(f"http://localhost:8080/v1/objects/known_faces/{user['id']}", json={
+        requests.put(f"{settings.weaviate_url}/v1/objects/known_faces/{user['id']}", json={
             "vector": smoel_vector,
             "properties": {
                 "hash": user["hash"],
