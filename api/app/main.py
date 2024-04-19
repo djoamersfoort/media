@@ -37,13 +37,6 @@ async def update_smoelen():
     handle_unprocessed(db)
 
 
-@asynccontextmanager
-async def startup(_app: FastAPI) -> None:
-    """Startup context manager"""
-    await update_smoelen()
-    yield
-
-
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI(lifespan=startup)
 
