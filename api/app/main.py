@@ -38,7 +38,7 @@ async def update_smoelen():
 
 
 models.Base.metadata.create_all(bind=engine)
-app = FastAPI(lifespan=startup)
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
