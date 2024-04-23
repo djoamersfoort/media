@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     client_id: str
     client_secret: str
     weaviate_url: str
+    update_interval: int = 24 * 60 * 60
 
 
 settings = Settings()

@@ -30,7 +30,7 @@ def get_jwks_client():
     return jwt.PyJWKClient(uri=get_openid_configuration()["jwks_uri"])
 
 
-@repeat_every(seconds=10, wait_first=True)
+@repeat_every(seconds=settings.update_interval, wait_first=True)
 async def update_smoelen():
     db = next(get_db())
     obtain_images(db)
