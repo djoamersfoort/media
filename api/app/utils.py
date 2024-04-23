@@ -12,7 +12,7 @@ from uuid import UUID
 
 import face_recognition
 import requests
-from PIL import Image
+from PIL import Image, ImageOps
 from app.conf import settings
 from app.db import models
 from app.db.crud import get_smoel, set_smoel, delete_items, create_item
@@ -116,7 +116,11 @@ def create_encodings(face):
         image = Image.open(face).convert('RGB')
     else:
         image = Image.open(BytesIO(face)).convert('RGB')
-    data = asarray(image)
+
+    resized_image = ImageOps.contain(image, (1920, 1920))
+    data = asarray(resized_image)
+    image.close()
+    resized_image.close()
 
     locations = face_recognition.face_locations(data)
     encodings = face_recognition.face_encodings(data, locations, num_jitters=20)
@@ -245,6 +249,7 @@ def process_smoelen(db: Session, images: List[models.Item]):
             db.commit()
             continue
 
+        print(f"processing {item.id}")
         smoelen = find_people(item)
         for smoel in smoelen:
             db_smoel = get_smoel(db, smoel["user"], smoel["name"])
