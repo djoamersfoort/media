@@ -30,15 +30,22 @@ def get_jwks_client():
     return jwt.PyJWKClient(uri=get_openid_configuration()["jwks_uri"])
 
 
-@repeat_every(seconds=24 * 60 * 60)
+@repeat_every(seconds=10, wait_first=True)
 async def update_smoelen():
     db = next(get_db())
     obtain_images(db)
     handle_unprocessed(db)
 
 
+@asynccontextmanager
+async def startup(_app: FastAPI) -> None:
+    """Startup context manager"""
+    await update_smoelen()
+    yield
+
+
 models.Base.metadata.create_all(bind=engine)
-app = FastAPI()
+app = FastAPI(lifespan=startup)
 
 app.add_middleware(
     CORSMiddleware,
@@ -68,15 +75,15 @@ def get_user(token: Annotated[HTTPAuthorizationCredentials, Depends(security)]):
         )
 
     is_admin = (
-        "begeleider" in decoded_jwt["account_type"]
-        or decoded_jwt["sub"] in settings.allowed_users
+            "begeleider" in decoded_jwt["account_type"]
+            or decoded_jwt["sub"] in settings.allowed_users
     )
     return User(id=decoded_jwt["sub"], admin=is_admin)
 
 
 def verify_signature(path: str, signature: str):
     if not crud.get_verifier().verify(
-        SHA256.new(path.encode("utf-8")), bytes.fromhex(signature)
+            SHA256.new(path.encode("utf-8")), bytes.fromhex(signature)
     ):
         return False
 
@@ -85,9 +92,9 @@ def verify_signature(path: str, signature: str):
 
 @app.post("/albums", response_model=schemas.AlbumList, operation_id="create_album")
 async def create_album(
-    album: schemas.AlbumCreate,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_user),
+        album: schemas.AlbumCreate,
+        db: Session = Depends(get_db),
+        user: User = Depends(get_user),
 ):
     if not user.admin:
         raise HTTPException(
@@ -106,9 +113,9 @@ async def get_albums(db: Session = Depends(get_db), _user=Depends(get_user)):
     "/albums", response_model=list[schemas.AlbumList], operation_id="order_albums"
 )
 async def order_albums(
-    albums: list[schemas.AlbumOrder],
-    db: Session = Depends(get_db),
-    user: User = Depends(get_user),
+        albums: list[schemas.AlbumOrder],
+        db: Session = Depends(get_db),
+        user: User = Depends(get_user),
 ):
     if not user.admin:
         raise HTTPException(
@@ -120,7 +127,7 @@ async def order_albums(
 
 @app.get("/albums/{album_id}", response_model=schemas.Album, operation_id="get_album")
 async def get_album(
-    album_id: UUID, db: Session = Depends(get_db), _user=Depends(get_user)
+        album_id: UUID, db: Session = Depends(get_db), _user=Depends(get_user)
 ):
     return crud.get_album(db, album_id)
 
@@ -129,10 +136,10 @@ async def get_album(
     "/albums/{album_id}", response_model=schemas.Album, operation_id="update_album"
 )
 async def update_album(
-    album_id: UUID,
-    album: schemas.AlbumCreate,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_user),
+        album_id: UUID,
+        album: schemas.AlbumCreate,
+        db: Session = Depends(get_db),
+        user: User = Depends(get_user),
 ):
     if not user.admin:
         raise HTTPException(
@@ -146,11 +153,11 @@ async def update_album(
     "/items/{album_id}", response_model=list[schemas.Item], operation_id="upload_items"
 )
 async def upload_items(
-    album_id: UUID,
-    items: list[UploadFile],
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_user),
+        album_id: UUID,
+        items: list[UploadFile],
+        background_tasks: BackgroundTasks,
+        db: Session = Depends(get_db),
+        user: User = Depends(get_user),
 ):
     items = await crud.create_items(db, user, items, album_id)
     background_tasks.add_task(process_smoelen, db, items)
@@ -159,10 +166,10 @@ async def upload_items(
 
 @app.get("/items/{item_id}/{expiry}/full", include_in_schema=False)
 async def get_item(
-    item_id: UUID, signature: str, expiry: float, db: Session = Depends(get_db)
+        item_id: UUID, signature: str, expiry: float, db: Session = Depends(get_db)
 ):
     if not verify_signature(
-        f"{settings.base_url}/items/{item_id}/{expiry}/full", signature
+            f"{settings.base_url}/items/{item_id}/{expiry}/full", signature
     ):
         return None
     if datetime.now().timestamp() > expiry:
@@ -173,10 +180,10 @@ async def get_item(
 
 @app.get("/items/{item_id}/{expiry}/cover", include_in_schema=False)
 async def get_cover(
-    item_id: UUID, signature: str, expiry: float, db: Session = Depends(get_db)
+        item_id: UUID, signature: str, expiry: float, db: Session = Depends(get_db)
 ):
     if not verify_signature(
-        f"{settings.base_url}/items/{item_id}/{expiry}/cover", signature
+            f"{settings.base_url}/items/{item_id}/{expiry}/cover", signature
     ):
         return None
     if datetime.now().timestamp() > expiry:
@@ -191,10 +198,10 @@ async def get_cover(
     operation_id="delete_items",
 )
 async def delete_items(
-    album_id: UUID,
-    items: list[UUID],
-    db: Session = Depends(get_db),
-    user: User = Depends(get_user),
+        album_id: UUID,
+        items: list[UUID],
+        db: Session = Depends(get_db),
+        user: User = Depends(get_user),
 ):
     return crud.delete_items(db, user, album_id, items)
 
@@ -205,10 +212,10 @@ async def delete_items(
     operation_id="set_preview",
 )
 async def set_preview(
-    album_id: UUID,
-    item_id: UUID,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_user),
+        album_id: UUID,
+        item_id: UUID,
+        db: Session = Depends(get_db),
+        user: User = Depends(get_user),
 ):
     if not user.admin:
         raise HTTPException(

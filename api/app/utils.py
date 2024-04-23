@@ -13,25 +13,24 @@ from uuid import UUID
 import face_recognition
 import requests
 from PIL import Image
-from numpy import asarray, ndarray
-from sqlalchemy.orm import Session
-from starlette.concurrency import run_in_threadpool
-from weaviate import connect_to_local
-
 from app.conf import settings
 from app.db import models
 from app.db.crud import get_smoel, set_smoel, delete_items, create_item
-
-host, port = settings.weaviate_url.lstrip("https://").split(":")
-client = connect_to_local(host, port)
-known_faces = client.collections.get('known_faces')
-
+from numpy import asarray, ndarray
+from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
+from weaviate import connect_to_local, WeaviateClient
 
 NoArgsNoReturnFuncT = Callable[[], None]
 NoArgsNoReturnAsyncFuncT = Callable[[], Coroutine[Any, Any, None]]
 NoArgsNoReturnDecorator = Callable[
     [Union[NoArgsNoReturnFuncT, NoArgsNoReturnAsyncFuncT]], NoArgsNoReturnAsyncFuncT
 ]
+
+
+def get_weaviate_client() -> WeaviateClient:
+    host, port = settings.weaviate_url.lstrip("https://").split(":")
+    return connect_to_local(host, port)
 
 
 def repeat_every(
@@ -222,16 +221,18 @@ def obtain_images(db: Session):
 def find_people(item: models.Item):
     encodings = create_encodings(item.path)
     smoelen = []
-    for encoding in encodings:
-        smoel = known_faces.query.near_vector(
-            near_vector=ndarray.tolist(encoding),
-            distance=0.18,
-            limit=1,
-        )
-        if len(smoel.objects) == 0:
-            continue
+    with get_weaviate_client() as client:
+        known_faces = client.collections.get('known_faces')
+        for encoding in encodings:
+            smoel = known_faces.query.near_vector(
+                near_vector=ndarray.tolist(encoding),
+                distance=0.18,
+                limit=1,
+            )
+            if len(smoel.objects) == 0:
+                continue
 
-        smoelen.append(smoel.objects[0].properties)
+            smoelen.append(smoel.objects[0].properties)
 
     return smoelen
 
