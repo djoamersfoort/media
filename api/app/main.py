@@ -149,6 +149,26 @@ async def update_album(
     return crud.update_album(db, album_id, album)
 
 
+@app.delete("/albums/{album_id}", operation_id="delete_album")
+async def delete_album(
+        album_id: UUID,
+        db: Session = Depends(get_db),
+        user: User = Depends(get_user),
+):
+    if not user.admin:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorized"
+        )
+
+    result = crud.delete_album(db, album_id)
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
+        )
+    
+    return {"success": True}
+
+
 @app.post(
     "/items/{album_id}", response_model=list[schemas.Item], operation_id="upload_items"
 )

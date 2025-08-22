@@ -468,6 +468,23 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
     /**
      * No description
      *
+     * @name DeleteAlbum
+     * @summary Delete Album
+     * @request DELETE:/albums/{album_id}
+     * @secure
+     */
+    deleteAlbum: (albumId: string, params: RequestParams = {}) =>
+      this.request<{ success: boolean }, HTTPValidationError>({
+        path: `/albums/${albumId}`,
+        method: "DELETE",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
      * @name SetPreview
      * @summary Set Preview
      * @request POST:/albums/{album_id}/preview

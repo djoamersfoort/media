@@ -131,6 +131,20 @@
     async function showPeople() {
         showingPeople = !showingPeople
     }
+
+    async function deleteAlbum() {
+        if (!confirm(`Are you sure you want to delete the album "${name}"? This action cannot be undone.`)) {
+            return
+        }
+        
+        try {
+            await Api.albums.deleteAlbum(id)
+            push('/')
+        } catch (error) {
+            console.error('Failed to delete album:', error)
+            alert('Failed to delete album. Please try again.')
+        }
+    }
 </script>
 
 {#if $current}
@@ -175,6 +189,7 @@
             {#await user}{:then user}
                 {#if user.admin}
                     <Action icon="{faPencilAlt}" on:use={() => push(`/${id}/edit`)} />
+                    <Action icon="{faTrashCan}" on:use={deleteAlbum} />
                 {/if}
             {/await}
             <Action icon="{faUpload}" on:use={upload} />
