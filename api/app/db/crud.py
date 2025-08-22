@@ -150,6 +150,31 @@ def order_albums(db: Session, albums: list[schemas.AlbumOrder]):
     return db.query(models.Album).all()
 
 
+def delete_album(db: Session, album_id: UUID):
+    # Get the album first to check if it exists
+    db_album = db.query(models.Album).filter(models.Album.id == album_id).first()
+    if not db_album:
+        return None
+    
+    # Get all items in the album to delete them first
+    album_items = [item.id for item in db_album.items]
+    
+    # Delete all items in the album if there are any (this handles file cleanup too)
+    if album_items:
+        delete_items(db, None, album_id, album_items)
+    
+    # Remove the album directory
+    album_folder = f"data/items/{album_id}"
+    if os.path.exists(album_folder):
+        os.rmdir(album_folder)
+    
+    # Delete the album from database
+    db.delete(db_album)
+    db.commit()
+    
+    return True
+
+
 def create_item(
     db: Session,
     user: schemas.User | None,
