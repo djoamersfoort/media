@@ -21,7 +21,7 @@
     "vite": "^7.1.2"
   },
   "dependencies": {
-    "@fortawesome/free-regular-svg-icons": "^6.7.2",
+    "@fortawesome/free-regular-svg-icons": "^7.0.0",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "jwt-decode": "^4.0.0",
     "svelte-dnd-action": "^0.9.64",
