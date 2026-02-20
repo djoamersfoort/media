@@ -208,24 +208,24 @@ def create_item(
 
     # get metadata
     if file_type == models.Type.IMAGE:
-        img = Image.open(f"/tmp/{item_id}")
-        width, height = img.size
+        with Image.open(f"/tmp/{item_id}") as img:
+            width, height = img.size
+
+            # create cover image
+            cover_path = f"{album_folder}/{item_id}/cover.jpg"
+            img.thumbnail((400, 400 * height // width))
+            img.save(cover_path)
     else:
         probe = ffmpeg.probe(f"/tmp/{item_id}")
         width = probe["streams"][0]["width"]
         height = probe["streams"][0]["height"]
 
-    # create cover image
-    cover_path = f"{album_folder}/{item_id}/cover.jpg"
-
-    if file_type == models.Type.VIDEO:
+        # create cover image
+        cover_path = f"{album_folder}/{item_id}/cover.jpg"
         stream = ffmpeg.input(f"/tmp/{item_id}")
         stream = ffmpeg.filter(stream, "scale", 400, -1)
         stream = ffmpeg.output(stream, cover_path, vframes=1)
         ffmpeg.run(stream)
-    else:
-        img.thumbnail((400, 400 * height // width))
-        img.save(cover_path)
 
     # store optimized full size image/video
     if file_type == models.Type.VIDEO:
@@ -236,8 +236,8 @@ def create_item(
         ffmpeg.run(stream)
     else:
         path = f"{album_folder}/{item_id}/item.jpg"
-        img = Image.open(f"/tmp/{item_id}")
-        img.save(path)
+        with Image.open(f"/tmp/{item_id}") as img:
+            img.save(path)
 
     if user:
         user_id = user.id
