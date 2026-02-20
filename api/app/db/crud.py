@@ -8,13 +8,12 @@ import ffmpeg
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
-from fastapi import UploadFile
-from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import func
-
+from PIL import Image
 from app.conf import settings
 from app.db import models, schemas
 from app.fileresponse import FastApiBaizeFileResponse as FileResponse
+from fastapi import UploadFile
+from sqlalchemy.orm import Session
 
 
 @lru_cache()
@@ -208,9 +207,13 @@ def create_item(
         file_type = models.Type.VIDEO
 
     # get metadata
-    probe = ffmpeg.probe(f"/tmp/{item_id}")
-    width = probe["streams"][0]["width"]
-    height = probe["streams"][0]["height"]
+    if file_type == models.Type.IMAGE:
+        img = Image.open(f"/tmp/{item_id}")
+        width, height = img.size
+    else:
+        probe = ffmpeg.probe(f"/tmp/{item_id}")
+        width = probe["streams"][0]["width"]
+        height = probe["streams"][0]["height"]
 
     # create cover image
     cover_path = f"{album_folder}/{item_id}/cover.jpg"
@@ -221,10 +224,8 @@ def create_item(
         stream = ffmpeg.output(stream, cover_path, vframes=1)
         ffmpeg.run(stream)
     else:
-        stream = ffmpeg.input(f"/tmp/{item_id}")
-        stream = ffmpeg.filter(stream, "scale", 400, -1)
-        stream = ffmpeg.output(stream, cover_path)
-        ffmpeg.run(stream)
+        img.thumbnail((400, 400 * height // width))
+        img.save(cover_path)
 
     # store optimized full size image/video
     if file_type == models.Type.VIDEO:
@@ -235,10 +236,8 @@ def create_item(
         ffmpeg.run(stream)
     else:
         path = f"{album_folder}/{item_id}/item.jpg"
-
-        stream = ffmpeg.input(f"/tmp/{item_id}")
-        stream = ffmpeg.output(stream, path)
-        ffmpeg.run(stream)
+        img = Image.open(f"/tmp/{item_id}")
+        img.save(path)
 
     if user:
         user_id = user.id
