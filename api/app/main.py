@@ -19,7 +19,7 @@ from app.db.schemas import User
 
 
 @lru_cache()
-async def get_openid_configuration():
+def get_openid_configuration():
     return requests.get(settings.openid_configuration, timeout=10).json()
 
 
