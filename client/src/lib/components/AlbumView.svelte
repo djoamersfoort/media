@@ -5,23 +5,21 @@
     import Api from "$lib/api"
     import Masonry from "$lib/components/masonry/Masonry.svelte"
     import FullItem from "$lib/components/FullItem.svelte"
-    import Modal from "$lib/components/Modal.svelte"
-    import { current, selected, user } from '$lib/stores'
-    import Fa from "svelte-fa"
+    import {current, selected, user} from '$lib/stores'
     import {
         faArrowLeft,
         faArrowRight,
         faClose,
-        faUpload,
         faPencilAlt,
+        faStar as faStarSolid,
         faTrashCan,
-        faStar as faStarSolid, faUsers
+        faUpload
     } from '@fortawesome/free-solid-svg-icons'
-    import { faStar } from '@fortawesome/free-regular-svg-icons'
+    import {faStar} from '@fortawesome/free-regular-svg-icons'
     import Progress from "$lib/components/Progress.svelte"
 
-    import { push } from 'svelte-spa-router'
-    import type {Album, Item} from "../../__generated__/api";
+    import {push} from 'svelte-spa-router'
+    import type {Item} from "../../__generated__/api";
     import {createEventDispatcher} from "svelte";
 
     const dispatch = createEventDispatcher()
@@ -36,7 +34,6 @@
     let uploading = false
     let status = ''
     let progress = 0
-    let showingPeople = false
 
     let selecting = false
     selected.subscribe(selected => {
@@ -128,10 +125,6 @@
         current.set(null)
     }
 
-    async function showPeople() {
-        showingPeople = !showingPeople
-    }
-
     async function deleteAlbum() {
         if (!confirm(`Are you sure you want to delete the album "${name}"? This action cannot be undone.`)) {
             return
@@ -164,24 +157,11 @@
                     {/if}
                 {/await}
             {/if}
-            <Action icon="{faUsers}" on:use={showPeople} />
             <Action icon="{faArrowLeft}" on:use={previous} />
             <Action icon="{faArrowRight}" on:use={next} />
             <Action icon="{faClose}" on:use={close} />
         </Menu>
         <FullItem item="{$current}" />
-        <Modal bind:showModal={showingPeople}>
-            <h2 slot="header">Smoelen</h2>
-            {#if $current.smoelen.length > 0}
-                <ul>
-                    {#each $current.smoelen as smoel (smoel.id)}
-                        <li>{smoel.name}</li>
-                    {/each}
-                </ul>
-            {:else}
-                <p>(Nog) geen smoelen gevonden</p>
-            {/if}
-        </Modal>
     </div>
 {:else}
     <Menu name="{name}" href="{back}">
