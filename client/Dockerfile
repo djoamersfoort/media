@@ -1,4 +1,4 @@
-FROM node:20 AS builder
+FROM node:24 AS builder
 ARG oauth_server
 ARG client_id
 ARG api_base
