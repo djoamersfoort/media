@@ -1,6 +1,6 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-RUN apt -yy update && apt -yy install ffmpeg cmake build-essential && apt clean
+RUN apt-get -y update && apt-get -y install ffmpeg && apt-get -y clean
 
 COPY app/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt

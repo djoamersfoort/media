@@ -1,8 +1,8 @@
 from logging.config import fileConfig
 from os import environ
 
-from dotenv import load_dotenv
 from alembic import context
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
