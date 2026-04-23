@@ -1,13 +1,13 @@
 import datetime
 import os
 from functools import lru_cache
-from typing import Type
 from uuid import uuid4, UUID
 
 import ffmpeg
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
+from PIL import Image
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
@@ -41,8 +41,12 @@ def sign_item(item_data: models.Item):
     item = schemas.Item.model_validate(item_data)
     expiry = (datetime.datetime.now() + datetime.timedelta(days=1)).timestamp()
 
-    item.cover_path = sign_url(f"{settings.base_url}/items/{item.id}/{expiry}/cover")
-    item.path = sign_url(f"{settings.base_url}/items/{item.id}/{expiry}/full")
+    item.cover_path = sign_url(
+        f"{settings.base_url}/items/{item.id}/{expiry}/cover"
+    )
+    item.path = sign_url(
+        f"{settings.base_url}/items/{item.id}/{expiry}/full"
+    )
 
     return item
 
@@ -96,9 +100,7 @@ def get_albums(db: Session):
 
 
 def get_smoelen_albums(db: Session):
-    smoelen = sorted(
-        db.query(models.Smoel).all(), key=lambda x: len(x.items), reverse=True
-    )
+    smoelen = sorted(db.query(models.Smoel).all(), key=lambda x: len(x.items), reverse=True)
     result = []
 
     for smoel_data in smoelen:
@@ -173,12 +175,12 @@ def delete_album(db: Session, album_id: UUID):
 
 
 def create_item(
-    db: Session,
-    user: schemas.User | None,
-    item: bytes,
-    content_type: str,
-    album_id: UUID | None,
-    date: datetime = None,
+        db: Session,
+        user: schemas.User | None,
+        item: bytes,
+        content_type: str,
+        album_id: UUID | None,
+        date: datetime = None
 ):
     # write temp file
     item_id = uuid4()
@@ -205,22 +207,24 @@ def create_item(
         file_type = models.Type.VIDEO
 
     # get metadata
-    probe = ffmpeg.probe(f"/tmp/{item_id}")
-    width = probe["streams"][0]["width"]
-    height = probe["streams"][0]["height"]
+    if file_type == models.Type.IMAGE:
+        with Image.open(f"/tmp/{item_id}") as img:
+            width, height = img.size
 
-    # create cover image
-    cover_path = f"{album_folder}/{item_id}/cover.jpg"
+            # create cover image
+            cover_path = f"{album_folder}/{item_id}/cover.jpg"
+            img.thumbnail((400, 400 * height // width))
+            img.save(cover_path)
+    else:
+        probe = ffmpeg.probe(f"/tmp/{item_id}")
+        width = probe["streams"][0]["width"]
+        height = probe["streams"][0]["height"]
 
-    if file_type == models.Type.VIDEO:
+        # create cover image
+        cover_path = f"{album_folder}/{item_id}/cover.jpg"
         stream = ffmpeg.input(f"/tmp/{item_id}")
         stream = ffmpeg.filter(stream, "scale", 400, -1)
         stream = ffmpeg.output(stream, cover_path, vframes=1)
-        ffmpeg.run(stream)
-    else:
-        stream = ffmpeg.input(f"/tmp/{item_id}")
-        stream = ffmpeg.filter(stream, "scale", 400, -1)
-        stream = ffmpeg.output(stream, cover_path)
         ffmpeg.run(stream)
 
     # store optimized full size image/video
@@ -232,10 +236,8 @@ def create_item(
         ffmpeg.run(stream)
     else:
         path = f"{album_folder}/{item_id}/item.jpg"
-
-        stream = ffmpeg.input(f"/tmp/{item_id}")
-        stream = ffmpeg.output(stream, path)
-        ffmpeg.run(stream)
+        with Image.open(f"/tmp/{item_id}") as img:
+            img.save(path)
 
     if user:
         user_id = user.id
@@ -262,27 +264,23 @@ def create_item(
 
 
 async def create_items(
-    db: Session,
-    user: schemas.User | None,
-    items: list[UploadFile],
-    album_id: UUID | None,
-    date: datetime = None,
+        db: Session,
+        user: schemas.User | None,
+        items: list[UploadFile],
+        album_id: UUID | None,
+        date: datetime = None,
 ) -> list[models.Item]:
     db_items = []
 
     for item in items:
-        db_item = create_item(
-            db, user, await item.read(), item.content_type, album_id, date
-        )
+        db_item = create_item(db, user, await item.read(), item.content_type, album_id, date)
         if db_item is not None:
             db_items.append(db_item)
 
     return db_items
 
 
-def delete_items(
-    db: Session, user: schemas.User | None, album_id: UUID | None, items: list[UUID]
-):
+def delete_items(db: Session, user: schemas.User | None, album_id: UUID | None, items: list[UUID]):
     for item in items:
         db_item = db.query(models.Item).filter(models.Item.id == item).first()
         if user is not None and db_item.user != user.id and not user.admin:
@@ -315,18 +313,3 @@ def set_preview(db: Session, album_id: UUID, item_id: UUID):
     db.commit()
 
     return db_album
-
-
-def get_smoel(db: Session, smoel_id: UUID, name: str):
-    smoel = db.query(models.Smoel).filter(models.Smoel.id == smoel_id).first()
-    if not smoel:
-        smoel = models.Smoel(name=name, id=smoel_id)
-        db.add(smoel)
-        db.commit()
-
-    return smoel
-
-
-def set_smoel(db: Session, item: models.Item | Type[models.Item], smoel: models.Smoel):
-    smoel.items.append(item)
-    db.commit()

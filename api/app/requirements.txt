@@ -11,3 +11,4 @@ pycryptodome~=3.23.0
 python-multipart~=0.0.20
 baize~=0.23.1
 alembic~=1.18.0
+pillow~=12.2.0
