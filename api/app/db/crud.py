@@ -41,12 +41,8 @@ def sign_item(item_data: models.Item):
     item = schemas.Item.model_validate(item_data)
     expiry = (datetime.datetime.now() + datetime.timedelta(days=1)).timestamp()
 
-    item.cover_path = sign_url(
-        f"{settings.base_url}/items/{item.id}/{expiry}/cover"
-    )
-    item.path = sign_url(
-        f"{settings.base_url}/items/{item.id}/{expiry}/full"
-    )
+    item.cover_path = sign_url(f"{settings.base_url}/items/{item.id}/{expiry}/cover")
+    item.path = sign_url(f"{settings.base_url}/items/{item.id}/{expiry}/full")
 
     return item
 
@@ -100,7 +96,9 @@ def get_albums(db: Session):
 
 
 def get_smoelen_albums(db: Session):
-    smoelen = sorted(db.query(models.Smoel).all(), key=lambda x: len(x.items), reverse=True)
+    smoelen = sorted(
+        db.query(models.Smoel).all(), key=lambda x: len(x.items), reverse=True
+    )
     result = []
 
     for smoel_data in smoelen:
@@ -175,12 +173,12 @@ def delete_album(db: Session, album_id: UUID):
 
 
 def create_item(
-        db: Session,
-        user: schemas.User | None,
-        item: bytes,
-        content_type: str,
-        album_id: UUID | None,
-        date: datetime = None
+    db: Session,
+    user: schemas.User | None,
+    item: bytes,
+    content_type: str,
+    album_id: UUID | None,
+    date: datetime = None,
 ):
     # write temp file
     item_id = uuid4()
@@ -264,23 +262,27 @@ def create_item(
 
 
 async def create_items(
-        db: Session,
-        user: schemas.User | None,
-        items: list[UploadFile],
-        album_id: UUID | None,
-        date: datetime = None,
+    db: Session,
+    user: schemas.User | None,
+    items: list[UploadFile],
+    album_id: UUID | None,
+    date: datetime = None,
 ) -> list[models.Item]:
     db_items = []
 
     for item in items:
-        db_item = create_item(db, user, await item.read(), item.content_type, album_id, date)
+        db_item = create_item(
+            db, user, await item.read(), item.content_type, album_id, date
+        )
         if db_item is not None:
             db_items.append(db_item)
 
     return db_items
 
 
-def delete_items(db: Session, user: schemas.User | None, album_id: UUID | None, items: list[UUID]):
+def delete_items(
+    db: Session, user: schemas.User | None, album_id: UUID | None, items: list[UUID]
+):
     for item in items:
         db_item = db.query(models.Item).filter(models.Item.id == item).first()
         if user is not None and db_item.user != user.id and not user.admin:
