@@ -54,7 +54,7 @@ def get_user(token: Annotated[HTTPAuthorizationCredentials, Depends(security)]):
             algorithms=openid_configuration["id_token_signing_alg_values_supported"],
             options={"verify_aud": False},
         )
-    except (jwt.exceptions.PyJWTError, Exception) as e:
+    except jwt.exceptions.PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid token"
         )
