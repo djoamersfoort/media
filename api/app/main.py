@@ -46,14 +46,20 @@ def get_user(token: Annotated[HTTPAuthorizationCredentials, Depends(security)]):
     openid_configuration = get_openid_configuration()
     jwks_client = get_jwks_client()
 
-    signing_key = jwks_client.get_signing_key_from_jwt(token.credentials)
-    decoded_jwt = jwt.decode(
-        token.credentials,
-        key=signing_key.key,
-        algorithms=openid_configuration["id_token_signing_alg_values_supported"],
-        options={"verify_aud": False},
-    )
-    if not decoded_jwt["media"]:
+    try:
+        signing_key = jwks_client.get_signing_key_from_jwt(token.credentials)
+        decoded_jwt = jwt.decode(
+            token.credentials,
+            key=signing_key.key,
+            algorithms=openid_configuration["id_token_signing_alg_values_supported"],
+            options={"verify_aud": False},
+        )
+    except (jwt.exceptions.PyJWTError, Exception) as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid token"
+        )
+
+    if not decoded_jwt.get("media"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorized"
         )
