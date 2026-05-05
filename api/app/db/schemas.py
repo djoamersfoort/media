@@ -25,7 +25,8 @@ class Smoel(BaseModel):
     id: UUID
     name: str
 
-    model_config = {"from_attributes": True}
+    class Config:
+        from_attributes = True
 
 
 class ItemBase(BaseModel):
@@ -42,7 +43,8 @@ class Item(ItemBase):
     cover_path: str
     smoelen: list[Smoel]
 
-    model_config = {"from_attributes": True}
+    class Config:
+        from_attributes = True
 
 
 class AlbumBase(BaseModel):
@@ -64,14 +66,16 @@ class Album(AlbumBase):
     order: int
     preview: Item | None
 
-    model_config = {"from_attributes": True}
+    class Config:
+        from_attributes = True
 
 
 class SmoelAlbum(SmoelAlbumBase):
     id: UUID
     items: list[Item]
 
-    model_config = {"from_attributes": True}
+    class Config:
+        from_attributes = True
 
 
 class AlbumList(AlbumBase):
@@ -79,7 +83,8 @@ class AlbumList(AlbumBase):
     order: int
     preview: Item | None
 
-    model_config = {"from_attributes": True}
+    class Config:
+        from_attributes = True
 
 
 class SmoelAlbumList(SmoelAlbumBase):
@@ -87,7 +92,8 @@ class SmoelAlbumList(SmoelAlbumBase):
     preview: Item
     items: list[Item]
 
-    model_config = {"from_attributes": True}
+    class Config:
+        from_attributes = True
 
 
 class AlbumOrder(BaseModel):
