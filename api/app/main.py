@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession as Session
 from app.conf import settings
 from app.db import schemas, crud
 from app.db.database import get_db
-from app.db.schemas import User
+from app.db.schemas import User, Album
 
 
 @lru_cache()
@@ -222,23 +222,8 @@ async def delete_items(
     items: list[UUID],
     db: Session = Depends(get_db),
     user: User = Depends(get_user_dep),
-):
-    db_album = await crud.delete_items(db, user, album_id, items)
-    if db_album is None:
-        return None
-
-    # Manual conversion to avoid relationship access issues during validation
-    album_data = schemas.Album.model_validate(
-        {
-            "id": db_album.id,
-            "name": db_album.name,
-            "description": db_album.description,
-            "order": db_album.order,
-            "items": [],  # delete_items returns the album, but we don't need items here
-            "preview": crud.sign_item(db_album.preview) if db_album.preview else None,
-        }
-    )
-    return album_data
+) -> Album | None:
+    return await crud.delete_items(db, user, album_id, items)
 
 
 @app.post(

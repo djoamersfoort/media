@@ -317,33 +317,29 @@ async def create_items(
 
 async def delete_items(
     db: Session, user: schemas.User | None, album_id: UUID | None, items: list[UUID]
-):
+) -> schemas.Album | None:
     # Check if the album exists
+    db_album = None
     if album_id:
-        await db.get_one(models.Album, album_id)
+        db_album = await db.get(models.Album, album_id)
     # First delete the items
-    for item in items:
-        result = await db.execute(select(models.Item).where(models.Item.id == item))
-        db_item = result.scalar_one_or_none()
+    for item_id in items:
+        db_item = await db.get(models.Item, item_id)
         if user is not None and db_item.user != user.id and not user.admin:
             continue
 
         os.remove(db_item.path)
         os.remove(db_item.cover_path)
 
-        if album_id is None:
-            album_folder = "data/items/smoelen"
-        else:
-            album_folder = f"data/items/{album_id}"
-        os.rmdir(f"{album_folder}/{item}")
+        album_folder = "data/items/smoelen"
+        if db_album:
+            album_folder = f"data/items/{db_album.id}"
+        os.rmdir(f"{album_folder}/{db_item.id}")
         await db.delete(db_item)
     await db.commit()
 
-    if not album_id:
-        return None
-
-    result = await db.execute(select(models.Album).where(models.Album.id == album_id))
-    return result.scalar_one_or_none()
+    # Return the full album
+    return await get_album(db, db_album.id) if db_album else None
 
 
 async def set_preview(db: Session, album_id: UUID, item_id: UUID):
