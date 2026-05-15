@@ -10,11 +10,11 @@ from fastapi import FastAPI, Depends, UploadFile, status
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession as Session
 
 from app.conf import settings
-from app.db import models, schemas, crud
-from app.db.database import get_db, engine
+from app.db import schemas, crud
+from app.db.database import get_db
 from app.db.schemas import User
 
 
@@ -28,7 +28,6 @@ def get_jwks_client():
     return jwt.PyJWKClient(uri=get_openid_configuration()["jwks_uri"])
 
 
-models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 app.add_middleware(
@@ -42,7 +41,7 @@ app.add_middleware(
 security = HTTPBearer()
 
 
-def get_user(token: Annotated[HTTPAuthorizationCredentials, Depends(security)]):
+def get_user_dep(token: Annotated[HTTPAuthorizationCredentials, Depends(security)]):
     openid_configuration = get_openid_configuration()
     jwks_client = get_jwks_client()
 
@@ -84,19 +83,21 @@ def verify_signature(path: str, signature: str):
 async def create_album(
     album: schemas.AlbumCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(get_user),
+    user: User = Depends(get_user_dep),
 ):
     if not user.admin:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorized"
         )
 
-    return crud.create_album(db, album)
+    return await crud.create_album(db, album)
 
 
 @app.get("/albums", response_model=list[schemas.AlbumList], operation_id="get_albums")
-async def get_albums(db: Session = Depends(get_db), _user: User = Depends(get_user)):
-    return crud.get_albums(db)
+async def get_albums(
+    db: Session = Depends(get_db), _user: User = Depends(get_user_dep)
+):
+    return await crud.get_albums(db)
 
 
 @app.patch(
@@ -105,21 +106,21 @@ async def get_albums(db: Session = Depends(get_db), _user: User = Depends(get_us
 async def order_albums(
     albums: list[schemas.AlbumOrder],
     db: Session = Depends(get_db),
-    user: User = Depends(get_user),
+    user: User = Depends(get_user_dep),
 ):
     if not user.admin:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorized"
         )
 
-    return crud.order_albums(db, albums)
+    return await crud.order_albums(db, albums)
 
 
 @app.get("/albums/{album_id}", response_model=schemas.Album, operation_id="get_album")
 async def get_album(
-    album_id: UUID, db: Session = Depends(get_db), _user=Depends(get_user)
+    album_id: UUID, db: Session = Depends(get_db), _user=Depends(get_user_dep)
 ):
-    return crud.get_album(db, album_id)
+    return await crud.get_album(db, album_id)
 
 
 @app.patch(
@@ -129,28 +130,40 @@ async def update_album(
     album_id: UUID,
     album: schemas.AlbumCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(get_user),
+    user: User = Depends(get_user_dep),
 ):
     if not user.admin:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorized"
         )
 
-    return crud.update_album(db, album_id, album)
+    db_album = await crud.update_album(db, album_id, album)
+    # Manual conversion to avoid relationship access issues during validation
+    album_data = schemas.Album.model_validate(
+        {
+            "id": db_album.id,
+            "name": db_album.name,
+            "description": db_album.description,
+            "order": db_album.order,
+            "items": [],  # We know they are empty or not needed here for the return
+            "preview": crud.sign_item(db_album.preview) if db_album.preview else None,
+        }
+    )
+    return album_data
 
 
 @app.delete("/albums/{album_id}", operation_id="delete_album")
 async def delete_album(
     album_id: UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(get_user),
+    user: User = Depends(get_user_dep),
 ):
     if not user.admin:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorized"
         )
 
-    result = crud.delete_album(db, album_id)
+    result = await crud.delete_album(db, album_id)
     if result is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
@@ -166,7 +179,7 @@ async def upload_items(
     album_id: UUID,
     items: list[UploadFile],
     db: Session = Depends(get_db),
-    user: User = Depends(get_user),
+    user: User = Depends(get_user_dep),
 ):
     return await crud.create_items(db, user, items, album_id)
 
@@ -182,7 +195,7 @@ async def get_item(
     if datetime.now().timestamp() > expiry:
         return None
 
-    return crud.get_full(db, item_id)
+    return await crud.get_full(db, item_id)
 
 
 @app.get("/items/{item_id}/{expiry}/cover", include_in_schema=False)
@@ -196,7 +209,7 @@ async def get_cover(
     if datetime.now().timestamp() > expiry:
         return None
 
-    return crud.get_cover(db, item_id)
+    return await crud.get_cover(db, item_id)
 
 
 @app.post(
@@ -208,9 +221,24 @@ async def delete_items(
     album_id: UUID,
     items: list[UUID],
     db: Session = Depends(get_db),
-    user: User = Depends(get_user),
+    user: User = Depends(get_user_dep),
 ):
-    return crud.delete_items(db, user, album_id, items)
+    db_album = await crud.delete_items(db, user, album_id, items)
+    if db_album is None:
+        return None
+
+    # Manual conversion to avoid relationship access issues during validation
+    album_data = schemas.Album.model_validate(
+        {
+            "id": db_album.id,
+            "name": db_album.name,
+            "description": db_album.description,
+            "order": db_album.order,
+            "items": [],  # delete_items returns the album, but we don't need items here
+            "preview": crud.sign_item(db_album.preview) if db_album.preview else None,
+        }
+    )
+    return album_data
 
 
 @app.post(
@@ -222,32 +250,44 @@ async def set_preview(
     album_id: UUID,
     item_id: UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(get_user),
+    user: User = Depends(get_user_dep),
 ):
     if not user.admin:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorized"
         )
 
-    return crud.set_preview(db, album_id, item_id)
+    db_album = await crud.set_preview(db, album_id, item_id)
+    # Manual conversion to avoid relationship access issues during validation
+    album_data = schemas.Album.model_validate(
+        {
+            "id": db_album.id,
+            "name": db_album.name,
+            "description": db_album.description,
+            "order": db_album.order,
+            "items": [],
+            "preview": crud.sign_item(db_album.preview) if db_album.preview else None,
+        }
+    )
+    return album_data
 
 
 @app.get("/users/me", response_model=User, operation_id="get_user")
-async def get_user(user: User = Depends(get_user)):
+async def get_user(user: User = Depends(get_user_dep)):
     return user
 
 
 @app.get(
     "/smoelen", response_model=list[schemas.SmoelAlbumList], operation_id="get_smoelen"
 )
-async def get_smoelen(db: Session = Depends(get_db), _user=Depends(get_user)):
-    return crud.get_smoelen_albums(db)
+async def get_smoelen(db: Session = Depends(get_db), _user=Depends(get_user_dep)):
+    return await crud.get_smoelen_albums(db)
 
 
 @app.get(
     "/smoelen/{smoel_id}", response_model=schemas.SmoelAlbum, operation_id="get_smoel"
 )
 async def get_smoel(
-    smoel_id: UUID, db: Session = Depends(get_db), _user=Depends(get_user)
+    smoel_id: UUID, db: Session = Depends(get_db), _user=Depends(get_user_dep)
 ):
-    return crud.get_smoel_album(db, smoel_id)
+    return await crud.get_smoel_album(db, smoel_id)
