@@ -146,7 +146,11 @@ async def create_album(db: Session, album: schemas.AlbumCreate) -> models.Album:
 async def update_album(
     db: Session, album_id: UUID, album: schemas.AlbumCreate
 ) -> schemas.Album:
-    result = await db.execute(select(models.Album).where(models.Album.id == album_id))
+    result = await db.execute(
+        select(models.Album)
+        .where(models.Album.id == album_id)
+        .options(selectinload(models.Album.preview))
+    )
     db_album = result.scalar_one()
     db_album.name = album.name
     db_album.description = album.description
@@ -164,7 +168,9 @@ async def order_albums(db: Session, albums: list[schemas.AlbumOrder]):
         db_album = result.scalar_one()
         db_album.order = album.order
     await db.commit()
-    result = await db.execute(select(models.Album))
+    result = await db.execute(
+        select(models.Album).options(selectinload(models.Album.preview))
+    )
     return result.scalars().all()
 
 
