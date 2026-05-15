@@ -16,15 +16,17 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 load_dotenv()
-config.set_main_option('sqlalchemy.url', environ.get(
-    'DATABASE_URL', environ.get('database_url', 'sqlite:///:memory:')
-))
-print(environ.get('DATABASE_URL'))
+config.set_main_option(
+    "sqlalchemy.url",
+    environ.get("DATABASE_URL", environ.get("database_url", "sqlite:///:memory:")),
+)
+print(environ.get("DATABASE_URL"))
 
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
 from app.db.models import Base
+
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
@@ -72,9 +74,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()
