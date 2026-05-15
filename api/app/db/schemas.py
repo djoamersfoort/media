@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 @lru_cache()
 def get_signer():
-    with open("private.key", "r") as buffer:
+    with open("private.key", "r", encoding="utf8") as buffer:
         key = buffer.read()
 
     return PKCS1_v1_5.new(RSA.import_key(key))
@@ -25,8 +25,7 @@ class Smoel(BaseModel):
     id: UUID
     name: str
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class ItemBase(BaseModel):
@@ -43,8 +42,7 @@ class Item(ItemBase):
     cover_path: str
     smoelen: list[Smoel]
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class AlbumBase(BaseModel):
@@ -66,16 +64,14 @@ class Album(AlbumBase):
     order: int
     preview: Item | None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class SmoelAlbum(SmoelAlbumBase):
     id: UUID
     items: list[Item]
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class AlbumList(AlbumBase):
@@ -83,8 +79,7 @@ class AlbumList(AlbumBase):
     order: int
     preview: Item | None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class SmoelAlbumList(SmoelAlbumBase):
@@ -92,8 +87,7 @@ class SmoelAlbumList(SmoelAlbumBase):
     preview: Item
     items: list[Item]
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class AlbumOrder(BaseModel):
