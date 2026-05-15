@@ -25,12 +25,12 @@ jobs:
           pip install black==26.3.1
 
       - name: Run black
-        working-directory: ./api/app
+        working-directory: ./api
         run: |
           black --check .
 
       - name: Run unit tests
-        working-directory: ./api/app
+        working-directory: ./api
         run: |
           cp .env.test .env
           PYTHONPATH="." pytest
