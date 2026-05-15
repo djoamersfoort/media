@@ -20,7 +20,7 @@ from app.fileresponse import FastApiBaizeFileResponse as FileResponse
 
 @lru_cache()
 def get_signer():
-    with open("data/private.key", "r") as buffer:
+    with open("data/private.key", "r", encoding="utf8") as buffer:
         key = buffer.read()
 
     return PKCS1_v1_5.new(RSA.import_key(key))
@@ -28,7 +28,7 @@ def get_signer():
 
 @lru_cache()
 def get_verifier():
-    with open("data/public.key", "r") as buffer:
+    with open("data/public.key", "r", encoding="utf8") as buffer:
         key = buffer.read()
 
     return PKCS1_v1_5.new(RSA.import_key(key))
@@ -91,7 +91,9 @@ async def get_cover(db: Session, item_id: UUID) -> FileResponse:
 
 async def get_albums(db: Session) -> list[schemas.AlbumList]:
     result = await db.execute(
-        select(models.Album).options(selectinload(models.Album.preview).selectinload(models.Item.smoelen))
+        select(models.Album).options(
+            selectinload(models.Album.preview).selectinload(models.Item.smoelen)
+        )
     )
     db_albums = result.scalars().all()
     result_list = []
@@ -141,11 +143,10 @@ async def create_album(db: Session, album: schemas.AlbumCreate) -> models.Album:
     return db_album
 
 
-async def update_album(db: Session, album_id: UUID, album: schemas.AlbumCreate) -> schemas.Album:
-    result = await db.execute(
-        select(models.Album)
-        .where(models.Album.id == album_id)
-    )
+async def update_album(
+    db: Session, album_id: UUID, album: schemas.AlbumCreate
+) -> schemas.Album:
+    result = await db.execute(select(models.Album).where(models.Album.id == album_id))
     db_album = result.scalar_one()
     db_album.name = album.name
     db_album.description = album.description

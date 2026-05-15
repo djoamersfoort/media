@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 @lru_cache()
 def get_signer():
-    with open("private.key", "r") as buffer:
+    with open("private.key", "r", encoding="utf8") as buffer:
         key = buffer.read()
 
     return PKCS1_v1_5.new(RSA.import_key(key))

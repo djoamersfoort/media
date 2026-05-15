@@ -55,7 +55,7 @@ def get_user_dep(token: Annotated[HTTPAuthorizationCredentials, Depends(security
         )
     except jwt.exceptions.PyJWTError:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
 
     if not decoded_jwt.get("media"):
