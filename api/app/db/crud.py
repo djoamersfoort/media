@@ -192,10 +192,10 @@ async def delete_album(db: Session, album_id: UUID):
 
     # Delete all items in the album if there are any (this handles file cleanup too)
     if album_items:
-        await delete_items(db, None, album_id, album_items)
+        await delete_items(db, None, db_album.id, album_items)
 
     # Remove the album directory
-    album_folder = f"data/items/{album_id}"
+    album_folder = f"data/items/{db_album.id}"
     if os.path.exists(album_folder):
         os.rmdir(album_folder)
 
