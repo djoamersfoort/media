@@ -339,7 +339,7 @@ async def delete_items(
     await db.commit()
 
     # Return the full album
-    return await get_album(db, db_album.id) if db_album else None
+    return await get_album(db, album_id) if album_id else None
 
 
 async def set_preview(db: Session, album_id: UUID, item_id: UUID):
