@@ -73,3 +73,60 @@ async def test_get_item_full(client, db_session):
         )
 
     assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_delete_items(admin_client, db_session):
+    from app.db import models
+
+    album_id = uuid4()
+    db_album = models.Album(
+        id=album_id, name="Delete Album", description="Desc", order=0
+    )
+    db_session.add(db_album)
+    await db_session.commit()
+
+    item_id = uuid4()
+    db_item = models.Item(
+        id=item_id,
+        album_id=album_id,
+        path=f"data/items/{album_id}/{item_id}/item.jpg",
+        cover_path=f"data/items/{album_id}/{item_id}/cover.jpg",
+        type=models.Type.IMAGE,
+        width=100,
+        height=100,
+    )
+    db_session.add(db_item)
+    await db_session.commit()
+
+    with patch("os.remove") as mock_remove, patch("os.rmdir") as mock_rmdir, patch(
+        "app.db.crud.get_album"
+    ) as mock_get_album:
+        # Mock get_album to return the album data, as delete_items returns it
+        # We return a schema instead of a model to avoid SQLAlchemy async issues during validation
+        from app.db import schemas
+
+        mock_get_album.return_value = schemas.Album(
+            id=album_id,
+            name="Delete Album",
+            description="Desc",
+            order=0,
+            items=[],
+            preview=None,
+        )
+
+        response = await admin_client.post(
+            f"/items/{album_id}/delete",
+            json=[str(item_id)],
+        )
+
+    assert response.status_code == 200
+    # Verify item is deleted from DB
+    result = await db_session.get(models.Item, item_id)
+    assert result is None
+    # Verify os.remove was called for both path and cover_path
+    assert mock_remove.call_count == 2
+    mock_remove.assert_any_call(db_item.path)
+    mock_remove.assert_any_call(db_item.cover_path)
+    # Verify os.rmdir was called for the item directory
+    mock_rmdir.assert_called_once_with(f"data/items/{album_id}/{item_id}")
