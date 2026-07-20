@@ -1,6 +1,6 @@
 uvicorn~=0.50.2
 ffmpeg-python~=0.2.0
-fastapi~=0.139.0
+fastapi~=0.139.2
 SQLAlchemy~=2.0.51
 pydantic~=2.13.4
 cryptography~=48.0.0
