@@ -53,10 +53,15 @@ async def get_album(db: Session, album_id: UUID) -> schemas.Album:
     result = await db.execute(
         select(models.Album)
         .where(models.Album.id == album_id)
-        .options(selectinload(models.Album.items).selectinload(models.Item.smoelen))
+        .options(
+            selectinload(models.Album.items).selectinload(models.Item.smoelen),
+            selectinload(models.Album.preview).selectinload(models.Item.smoelen),
+        )
     )
     db_album = result.scalar_one()
     album = schemas.Album.model_validate(db_album)
+    if db_album.preview_id:
+        album.preview = sign_item(db_album.preview)
     album.items = [sign_item(item) for item in album.items]
 
     return album
@@ -66,7 +71,7 @@ async def get_smoel_album(db: Session, smoel_id: UUID) -> schemas.SmoelAlbum:
     result = await db.execute(
         select(models.Smoel)
         .where(models.Smoel.id == smoel_id)
-        .options(selectinload(models.Smoel.items))
+        .options(selectinload(models.Smoel.items).selectinload(models.Item.smoelen))
     )
     db_smoel = result.scalar_one()
     smoel = schemas.SmoelAlbum.model_validate(db_smoel)
@@ -111,7 +116,8 @@ async def get_albums(db: Session) -> list[schemas.AlbumList]:
 async def get_smoelen_albums(db: Session) -> list[schemas.SmoelAlbumList]:
     result = await db.execute(
         select(models.Smoel).options(
-            selectinload(models.Smoel.preview), selectinload(models.Smoel.items)
+            selectinload(models.Smoel.preview).selectinload(models.Item.smoelen),
+            selectinload(models.Smoel.items).selectinload(models.Item.smoelen),
         )
     )
     smoelen = sorted(result.scalars().all(), key=lambda x: len(x.items), reverse=True)
@@ -146,18 +152,13 @@ async def create_album(db: Session, album: schemas.AlbumCreate) -> models.Album:
 async def update_album(
     db: Session, album_id: UUID, album: schemas.AlbumCreate
 ) -> schemas.Album:
-    result = await db.execute(
-        select(models.Album)
-        .where(models.Album.id == album_id)
-        .options(selectinload(models.Album.preview).selectinload(models.Item.smoelen))
-    )
+    result = await db.execute(select(models.Album).where(models.Album.id == album_id))
     db_album = result.scalar_one()
     db_album.name = album.name
     db_album.description = album.description
     await db.commit()
-    await db.refresh(db_album)
 
-    return db_album
+    return await get_album(db, album_id)
 
 
 async def order_albums(db: Session, albums: list[schemas.AlbumOrder]):
@@ -168,12 +169,7 @@ async def order_albums(db: Session, albums: list[schemas.AlbumOrder]):
         db_album = result.scalar_one()
         db_album.order = album.order
     await db.commit()
-    result = await db.execute(
-        select(models.Album).options(
-            selectinload(models.Album.preview).selectinload(models.Item.smoelen)
-        )
-    )
-    return result.scalars().all()
+    return await get_albums(db)
 
 
 async def delete_album(db: Session, album_id: UUID):
@@ -301,18 +297,35 @@ async def create_items(
     items: list[UploadFile],
     album_id: UUID | None,
     date: datetime = None,
-) -> list[models.Item]:
-    # Check if the album exists
-    album = await db.get_one(models.Album, album_id)
-    db_items = []
+) -> list[schemas.Item]:
+    if album_id:
+        album = await db.get_one(models.Album, album_id)
+        target_album_id = album.id
+    else:
+        target_album_id = None
+
+    created_ids = []
     for item in items:
         db_item = await create_item(
-            db, user, await item.read(), item.content_type, album.id, date
+            db, user, await item.read(), item.content_type, target_album_id, date
         )
         if db_item is not None:
-            db_items.append(db_item)
+            created_ids.append(db_item.id)
 
-    return db_items
+    if not created_ids:
+        return []
+
+    result = await db.execute(
+        select(models.Item)
+        .where(models.Item.id.in_(created_ids))
+        .options(selectinload(models.Item.smoelen))
+    )
+    items_by_id = {item.id: item for item in result.scalars().all()}
+    return [
+        sign_item(items_by_id[item_id])
+        for item_id in created_ids
+        if item_id in items_by_id
+    ]
 
 
 async def delete_items(
@@ -342,15 +355,15 @@ async def delete_items(
     return await get_album(db, album_id) if album_id else None
 
 
-async def set_preview(db: Session, album_id: UUID, item_id: UUID):
+async def set_preview(db: Session, album_id: UUID, item_id: UUID) -> schemas.Album:
     result = await db.execute(select(models.Album).where(models.Album.id == album_id))
     db_album = result.scalar_one()
     result = await db.execute(select(models.Item).where(models.Item.id == item_id))
     db_item = result.scalar_one()
     if db_item.album_id != album_id:
-        return db_album
+        return await get_album(db, album_id)
 
     db_album.preview = db_item
     await db.commit()
 
-    return db_album
+    return await get_album(db, album_id)

@@ -1,7 +1,7 @@
 import pytest
 import datetime
 from uuid import uuid4
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 import io
 
 
@@ -16,24 +16,29 @@ async def test_upload_items(admin_client, db_session):
     db_session.add(db_album)
     await db_session.commit()
 
-    # Create a mock file
     file_content = b"fake image content"
     file = io.BytesIO(file_content)
 
-    # Mock the internal create_item calls to avoid ffmpeg/PIL dependencies
-    mock_item = MagicMock(spec=models.Item)
-    mock_item.id = uuid4()
-    mock_item.album_id = album_id
-    mock_item.path = "data/items/test/item.jpg"
-    mock_item.cover_path = "data/items/test/cover.jpg"
-    mock_item.width = 100
-    mock_item.height = 100
-    mock_item.type = models.Type.IMAGE
-    mock_item.date = None
+    item_id = uuid4()
 
-    with patch("app.db.crud.create_item", return_value=mock_item):
-        mock_item.user = "test_user"
-        mock_item.date = datetime.datetime.now()
+    async def mock_create_item(db, user, item_bytes, content_type, album_id, date=None):
+        db_item = models.Item(
+            id=item_id,
+            user=user.id if user else None,
+            album_id=album_id,
+            type=models.Type.IMAGE,
+            width=100,
+            height=100,
+            cover_path="data/items/test/cover.jpg",
+            path="data/items/test/item.jpg",
+            date=datetime.datetime.now(),
+        )
+        db.add(db_item)
+        await db.commit()
+        await db.refresh(db_item)
+        return db_item
+
+    with patch("app.db.crud.create_item", side_effect=mock_create_item):
         files = [("items", ("test.jpg", file, "image/jpeg"))]
         response = await admin_client.post(
             f"/items/{album_id}",
@@ -44,7 +49,46 @@ async def test_upload_items(admin_client, db_session):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
-    assert data[0]["id"] == str(mock_item.id)
+    assert data[0]["id"] == str(item_id)
+    assert "signature=" in data[0]["path"]
+    assert "signature=" in data[0]["cover_path"]
+    assert data[0]["smoelen"] == []
+
+
+@pytest.mark.asyncio
+async def test_upload_items_real_create_item(admin_client, db_session):
+    from app.db import models
+    from PIL import Image
+
+    album_id = uuid4()
+    db_album = models.Album(
+        id=album_id, name="Real Upload Album", description="Desc", order=0
+    )
+    db_session.add(db_album)
+    await db_session.commit()
+
+    # Create mock PIL image
+    mock_img = MagicMock()
+    mock_img.size = (800, 600)
+    mock_img.__enter__.return_value = mock_img
+
+    with patch("os.mkdir"), patch("builtins.open", mock_open()), patch(
+        "os.remove"
+    ), patch("PIL.Image.open", return_value=mock_img):
+        files = [("items", ("photo.jpg", io.BytesIO(b"fake_jpeg_data"), "image/jpeg"))]
+        response = await admin_client.post(
+            f"/items/{album_id}",
+            files=files,
+            headers={"Authorization": "Bearer mock_token"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert "id" in data[0]
+    assert "signature=" in data[0]["path"]
+    assert "signature=" in data[0]["cover_path"]
+    assert data[0]["smoelen"] == []
 
 
 @pytest.mark.asyncio
