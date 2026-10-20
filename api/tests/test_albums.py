@@ -144,3 +144,84 @@ async def test_delete_album(admin_client, db_session):
 
     assert response.status_code == 200
     assert response.json() == {"success": True}
+
+
+@pytest.mark.asyncio
+async def test_set_preview(admin_client, db_session):
+    from app.db import models
+
+    album_id = uuid4()
+    db_album = models.Album(
+        id=album_id, name="Preview Album", description="Desc", order=0
+    )
+    db_session.add(db_album)
+    item_id = uuid4()
+    db_item = models.Item(
+        id=item_id,
+        album_id=album_id,
+        path="tests/item.jpg",
+        cover_path="tests/cover.jpg",
+        type=models.Type.IMAGE,
+        width="100",
+        height="100",
+    )
+    db_session.add(db_item)
+    await db_session.commit()
+
+    response = await admin_client.post(
+        f"/albums/{album_id}/preview?item_id={item_id}",
+        headers={"Authorization": "Bearer mock_token"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == str(album_id)
+    assert data["preview"]["id"] == str(item_id)
+
+
+@pytest.mark.asyncio
+async def test_set_preview_non_admin(regular_client):
+    album_id = uuid4()
+    item_id = uuid4()
+    response = await regular_client.post(
+        f"/albums/{album_id}/preview?item_id={item_id}",
+        headers={"Authorization": "Bearer mock_token"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authorized"
+
+
+@pytest.mark.asyncio
+async def test_get_album_details_with_preview(admin_client, db_session):
+    from app.db import models
+
+    album_id = uuid4()
+    db_album = models.Album(
+        id=album_id, name="Detailed Album", description="Detailed Desc", order=0
+    )
+    db_session.add(db_album)
+    item_id = uuid4()
+    db_item = models.Item(
+        id=item_id,
+        album_id=album_id,
+        path="tests/item.jpg",
+        cover_path="tests/cover.jpg",
+        type=models.Type.IMAGE,
+        width="100",
+        height="100",
+    )
+    db_session.add(db_item)
+    db_album.preview = db_item
+    await db_session.commit()
+
+    response = await admin_client.get(
+        f"/albums/{album_id}", headers={"Authorization": "Bearer mock_token"}
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Detailed Album"
+    assert data["id"] == str(album_id)
+    assert data["preview"]["id"] == str(item_id)
+    assert "signature=" in data["preview"]["cover_path"]

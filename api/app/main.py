@@ -137,19 +137,7 @@ async def update_album(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorized"
         )
 
-    db_album = await crud.update_album(db, album_id, album)
-    # Manual conversion to avoid relationship access issues during validation
-    album_data = schemas.Album.model_validate(
-        {
-            "id": db_album.id,
-            "name": db_album.name,
-            "description": db_album.description,
-            "order": db_album.order,
-            "items": [],  # We know they are empty or not needed here for the return
-            "preview": crud.sign_item(db_album.preview) if db_album.preview else None,
-        }
-    )
-    return album_data
+    return await crud.update_album(db, album_id, album)
 
 
 @app.delete("/albums/{album_id}", operation_id="delete_album")
@@ -242,19 +230,7 @@ async def set_preview(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorized"
         )
 
-    db_album = await crud.set_preview(db, album_id, item_id)
-    # Manual conversion to avoid relationship access issues during validation
-    album_data = schemas.Album.model_validate(
-        {
-            "id": db_album.id,
-            "name": db_album.name,
-            "description": db_album.description,
-            "order": db_album.order,
-            "items": [],
-            "preview": crud.sign_item(db_album.preview) if db_album.preview else None,
-        }
-    )
-    return album_data
+    return await crud.set_preview(db, album_id, item_id)
 
 
 @app.get("/users/me", response_model=User, operation_id="get_user")
