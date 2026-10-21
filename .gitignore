@@ -2,6 +2,7 @@ api/data
 **/__pycache__
 */.venv
 */venv
+venv/
 api/database.db
 */.idea
 .idea

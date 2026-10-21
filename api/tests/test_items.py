@@ -187,6 +187,41 @@ async def test_upload_items_invalid_content_type(admin_client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_upload_items_video_success(admin_client, db_session):
+    from app.db import models
+
+    album_id = uuid4()
+    db_album = models.Album(
+        id=album_id, name="Video Upload Album", description="Desc", order=0
+    )
+    db_session.add(db_album)
+    await db_session.commit()
+
+    mock_probe = {"streams": [{"width": 1920, "height": 1080}]}
+
+    with patch("os.mkdir"), patch("builtins.open", mock_open()), patch(
+        "os.remove"
+    ), patch("ffmpeg.probe", return_value=mock_probe) as mock_ffmpeg_probe, patch(
+        "ffmpeg.run"
+    ) as mock_ffmpeg_run:
+        files = [("items", ("video.mp4", io.BytesIO(b"fake_video_data"), "video/mp4"))]
+        response = await admin_client.post(
+            f"/items/{album_id}",
+            files=files,
+            headers={"Authorization": "Bearer mock_token"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert "id" in data[0]
+    assert "signature=" in data[0]["path"]
+    assert "signature=" in data[0]["cover_path"]
+    assert mock_ffmpeg_probe.call_count == 1
+    assert mock_ffmpeg_run.call_count == 2
+
+
+@pytest.mark.asyncio
 async def test_upload_items_ffmpeg_error(admin_client, db_session):
     from app.db import models
     import ffmpeg
