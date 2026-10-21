@@ -1,5 +1,6 @@
 import datetime
 import os
+import shutil
 from functools import lru_cache
 from uuid import uuid4, UUID
 
@@ -8,7 +9,8 @@ from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from PIL import Image
-from fastapi import UploadFile
+from fastapi import UploadFile, status
+from fastapi.exceptions import HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession as Session
 from sqlalchemy.orm import selectinload
@@ -210,85 +212,109 @@ async def create_item(
     album_id: UUID | None,
     date: datetime = None,
 ):
+    if not content_type or "/" not in content_type:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid item"
+        )
+
+    # get type
+    file_type_str = content_type.split("/")[0]
+    if file_type_str not in ["image", "video"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid item"
+        )
+
+    if file_type_str == "image":
+        file_type = models.Type.IMAGE
+    else:
+        file_type = models.Type.VIDEO
+
     # write temp file
     item_id = uuid4()
     if album_id is None:
         album_folder = "data/items/smoelen"
         if not os.path.exists(album_folder):
             os.mkdir(album_folder)
-
     else:
         album_folder = f"data/items/{album_id}"
+        if not os.path.exists(album_folder):
+            os.mkdir(album_folder)
 
-    os.mkdir(f"{album_folder}/{item_id}")
-    with open(f"/tmp/{item_id}", "wb") as buffer:
+    item_folder = f"{album_folder}/{item_id}"
+    temp_path = f"/tmp/{item_id}"
+
+    if not os.path.exists(item_folder):
+        os.mkdir(item_folder)
+
+    with open(temp_path, "wb") as buffer:
         buffer.write(item)
 
-    # get type
-    file_type = content_type.split("/")[0]
-    if file_type not in ["image", "video"]:
-        return None
+    try:
+        # get metadata
+        if file_type == models.Type.IMAGE:
+            with Image.open(temp_path) as img:
+                width, height = img.size
 
-    if file_type == "image":
-        file_type = models.Type.IMAGE
-    else:
-        file_type = models.Type.VIDEO
+                # create cover image
+                cover_path = f"{item_folder}/cover.jpg"
+                img.thumbnail((400, 400 * height // width))
+                img.save(cover_path)
 
-    # get metadata
-    if file_type == models.Type.IMAGE:
-        with Image.open(f"/tmp/{item_id}") as img:
-            width, height = img.size
+            path = f"{item_folder}/item.jpg"
+            with Image.open(temp_path) as img:
+                img.save(path)
+        else:
+            probe = ffmpeg.probe(temp_path)
+            width = probe["streams"][0]["width"]
+            height = probe["streams"][0]["height"]
 
             # create cover image
-            cover_path = f"{album_folder}/{item_id}/cover.jpg"
-            img.thumbnail((400, 400 * height // width))
-            img.save(cover_path)
-    else:
-        probe = ffmpeg.probe(f"/tmp/{item_id}")
-        width = probe["streams"][0]["width"]
-        height = probe["streams"][0]["height"]
+            cover_path = f"{item_folder}/cover.jpg"
+            stream = ffmpeg.input(temp_path)
+            stream = ffmpeg.filter(stream, "scale", 400, -1)
+            stream = ffmpeg.output(stream, cover_path, vframes=1)
+            ffmpeg.run(stream)
 
-        # create cover image
-        cover_path = f"{album_folder}/{item_id}/cover.jpg"
-        stream = ffmpeg.input(f"/tmp/{item_id}")
-        stream = ffmpeg.filter(stream, "scale", 400, -1)
-        stream = ffmpeg.output(stream, cover_path, vframes=1)
-        ffmpeg.run(stream)
+            # store optimized full size image/video
+            path = f"{item_folder}/item.mp4"
+            stream = ffmpeg.input(temp_path)
+            stream = ffmpeg.output(stream, path, crf=23)
+            ffmpeg.run(stream)
 
-    # store optimized full size image/video
-    if file_type == models.Type.VIDEO:
-        path = f"{album_folder}/{item_id}/item.mp4"
+        if user:
+            user_id = user.id
+        else:
+            user_id = None
 
-        stream = ffmpeg.input(f"/tmp/{item_id}")
-        stream = ffmpeg.output(stream, path, crf=23)
-        ffmpeg.run(stream)
-    else:
-        path = f"{album_folder}/{item_id}/item.jpg"
-        with Image.open(f"/tmp/{item_id}") as img:
-            img.save(path)
+        db_item = models.Item(
+            id=item_id,
+            user=user_id,
+            album_id=album_id,
+            type=file_type,
+            width=width,
+            height=height,
+            cover_path=cover_path,
+            path=path,
+            date=date,
+        )
+        db.add(db_item)
+        await db.commit()
+        await db.refresh(db_item)
 
-    if user:
-        user_id = user.id
-    else:
-        user_id = None
-
-    db_item = models.Item(
-        id=item_id,
-        user=user_id,
-        album_id=album_id,
-        type=file_type,
-        width=width,
-        height=height,
-        cover_path=cover_path,
-        path=path,
-        date=date,
-    )
-    db.add(db_item)
-    await db.commit()
-    await db.refresh(db_item)
-
-    os.remove(f"/tmp/{item_id}")
-    return db_item
+        return db_item
+    except HTTPException:
+        shutil.rmtree(item_folder, ignore_errors=True)
+        raise
+    except Exception:
+        shutil.rmtree(item_folder, ignore_errors=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid item"
+        )
+    finally:
+        try:
+            os.remove(temp_path)
+        except OSError:
+            pass
 
 
 async def create_items(
@@ -299,7 +325,11 @@ async def create_items(
     date: datetime = None,
 ) -> list[schemas.Item]:
     if album_id:
-        album = await db.get_one(models.Album, album_id)
+        album = await db.get(models.Album, album_id)
+        if not album:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Album not found"
+            )
         target_album_id = album.id
     else:
         target_album_id = None

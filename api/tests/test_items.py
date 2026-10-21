@@ -92,6 +92,144 @@ async def test_upload_items_real_create_item(admin_client, db_session):
 
 
 @pytest.mark.asyncio
+async def test_upload_items_unidentified_image_error(admin_client, db_session):
+    from app.db import models
+    from PIL import UnidentifiedImageError
+
+    album_id = uuid4()
+    db_album = models.Album(
+        id=album_id, name="Error Upload Album", description="Desc", order=0
+    )
+    db_session.add(db_album)
+    await db_session.commit()
+
+    with patch("os.mkdir"), patch("builtins.open", mock_open()), patch(
+        "os.remove"
+    ) as mock_remove, patch("shutil.rmtree") as mock_rmtree, patch(
+        "PIL.Image.open",
+        side_effect=UnidentifiedImageError("cannot identify image file"),
+    ):
+        files = [("items", ("corrupt.jpg", io.BytesIO(b"corrupt_data"), "image/jpeg"))]
+        response = await admin_client.post(
+            f"/items/{album_id}",
+            files=files,
+            headers={"Authorization": "Bearer mock_token"},
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid item"
+    # Verify temp file was removed
+    assert mock_remove.call_count >= 1
+    # Verify created item directory was cleaned up
+    assert mock_rmtree.call_count >= 1
+
+
+@pytest.mark.asyncio
+async def test_upload_items_mixed_valid_and_invalid(admin_client, db_session):
+    from app.db import models
+    from PIL import UnidentifiedImageError
+
+    album_id = uuid4()
+    db_album = models.Album(
+        id=album_id, name="Mixed Upload Album", description="Desc", order=0
+    )
+    db_session.add(db_album)
+    await db_session.commit()
+
+    mock_img = MagicMock()
+    mock_img.size = (800, 600)
+    mock_img.__enter__.return_value = mock_img
+
+    with patch("os.mkdir"), patch("builtins.open", mock_open()), patch(
+        "os.remove"
+    ), patch("shutil.rmtree"), patch(
+        "PIL.Image.open",
+        side_effect=[
+            UnidentifiedImageError("cannot identify image file"),
+            mock_img,
+            mock_img,
+        ],
+    ):
+        files = [
+            ("items", ("corrupt.jpg", io.BytesIO(b"corrupt"), "image/jpeg")),
+            ("items", ("valid.jpg", io.BytesIO(b"valid"), "image/jpeg")),
+        ]
+        response = await admin_client.post(
+            f"/items/{album_id}",
+            files=files,
+            headers={"Authorization": "Bearer mock_token"},
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid item"
+
+
+@pytest.mark.asyncio
+async def test_upload_items_invalid_content_type(admin_client, db_session):
+    from app.db import models
+
+    album_id = uuid4()
+    db_album = models.Album(
+        id=album_id, name="Invalid Content Type Album", description="Desc", order=0
+    )
+    db_session.add(db_album)
+    await db_session.commit()
+
+    files = [("items", ("doc.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf"))]
+    response = await admin_client.post(
+        f"/items/{album_id}",
+        files=files,
+        headers={"Authorization": "Bearer mock_token"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid item"
+
+
+@pytest.mark.asyncio
+async def test_upload_items_ffmpeg_error(admin_client, db_session):
+    from app.db import models
+    import ffmpeg
+
+    album_id = uuid4()
+    db_album = models.Album(
+        id=album_id, name="Video Error Album", description="Desc", order=0
+    )
+    db_session.add(db_album)
+    await db_session.commit()
+
+    with patch("os.mkdir"), patch("builtins.open", mock_open()), patch(
+        "os.remove"
+    ) as mock_remove, patch("shutil.rmtree") as mock_rmtree, patch(
+        "ffmpeg.probe", side_effect=ffmpeg.Error("probe error", "", "")
+    ):
+        files = [("items", ("video.mp4", io.BytesIO(b"corrupt_video"), "video/mp4"))]
+        response = await admin_client.post(
+            f"/items/{album_id}",
+            files=files,
+            headers={"Authorization": "Bearer mock_token"},
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid item"
+    assert mock_remove.call_count >= 1
+    assert mock_rmtree.call_count >= 1
+
+
+@pytest.mark.asyncio
+async def test_upload_items_album_not_found(admin_client, db_session):
+    album_id = uuid4()
+    files = [("items", ("test.jpg", io.BytesIO(b"fake"), "image/jpeg"))]
+    response = await admin_client.post(
+        f"/items/{album_id}",
+        files=files,
+        headers={"Authorization": "Bearer mock_token"},
+    )
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Album not found"
+
+
+@pytest.mark.asyncio
 async def test_get_item_full(client, db_session):
     from app.db import models
 
