@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import os
 import shutil
@@ -264,7 +265,7 @@ async def create_item(
             with Image.open(temp_path) as img:
                 img.save(path)
         else:
-            probe = ffmpeg.probe(temp_path)
+            probe = await asyncio.to_thread(ffmpeg.probe, temp_path)
             width = probe["streams"][0]["width"]
             height = probe["streams"][0]["height"]
 
@@ -273,13 +274,13 @@ async def create_item(
             stream = ffmpeg.input(temp_path)
             stream = ffmpeg.filter(stream, "scale", 400, -1)
             stream = ffmpeg.output(stream, cover_path, vframes=1)
-            ffmpeg.run(stream)
+            await asyncio.to_thread(ffmpeg.run, stream)
 
             # store optimized full size image/video
             path = f"{item_folder}/item.mp4"
             stream = ffmpeg.input(temp_path)
             stream = ffmpeg.output(stream, path, crf=23)
-            ffmpeg.run(stream)
+            await asyncio.to_thread(ffmpeg.run, stream)
 
         if user:
             user_id = user.id
