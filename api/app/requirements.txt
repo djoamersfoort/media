@@ -1,7 +1,7 @@
 uvicorn~=0.52.1
 ffmpeg-python~=0.2.0
 fastapi~=0.162.0
-SQLAlchemy~=2.0.51
+SQLAlchemy~=2.1.6
 pydantic~=2.14.1
 cryptography~=50.0.2
 pydantic-settings~=2.16.1
